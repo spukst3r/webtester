@@ -1,3 +1,5 @@
+import json
+
 methods = {}
 
 
@@ -13,7 +15,10 @@ def api_method(**kwargs):
 
     def make_wrapper(f):
         name = kwargs['name']
-        methods[name] = f
+        methods[name] = {
+            'func': f,
+            'methods': kwargs.get('methods', ['GET']),
+        }
 
         def wrapper(*args, **kwargs):
             return f(*args, **kwargs)
@@ -22,10 +27,16 @@ def api_method(**kwargs):
     return make_wrapper
 
 
-def call(method, path, arguments):
-    if method in methods:
+def call(api_method, path, arguments, method='GET'):
+    if api_method in methods:
+        m = methods[api_method]
+
         try:
-            return methods[method](path, arguments)
+            if method not in m['methods']:
+                return error("Unsupported method: {}".format(method))
+
+            return json.dumps(m['func'](path, arguments,
+                                        method))
         except Exception as e:
             return error(e.message, 500)
     else:
@@ -36,16 +47,17 @@ def nomethod(*args, **kwargs):
     return error("No method with such name exists")
 
 
-@api_method(name='theme')
-def theme(path, arguments):
+@api_method(name='theme', methods=['GET', 'POST'])
+def theme(path, args, method):
     def list():
         return []
 
-    def get():
-        pass
+    def get(id):
+        return id
 
-    actions = {
-        'list': list,
-    }
+    id = args['id']
 
-    return actions.get(path, nomethod)(path, arguments)
+    if not id:
+        return list()
+    else:
+        return {'id': get(id)}
