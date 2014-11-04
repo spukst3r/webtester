@@ -24,9 +24,12 @@ def api_method(**kwargs):
 
 def call(method, path, arguments):
     if method in methods:
-        return methods[method](path, arguments)
+        try:
+            return methods[method](path, arguments)
+        except Exception as e:
+            return error(e.message, 500)
     else:
-        raise ValueError("Method {} does not exist".format(method))
+        return error("Method {} does not exist".format(method))
 
 
 def nomethod(*args, **kwargs):
