@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 
 @app.route('/api/<method>/', defaults={'id': None}, methods=['GET', 'POST'])
-@app.route('/api/<method>/<int:id>')
+@app.route('/api/<method>/<int:id>', methods=['GET', 'DELETE', 'PUT'])
 @cross_origin()
 def call_api(method, **kwargs):
     result, code = api.call(method,
