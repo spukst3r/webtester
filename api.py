@@ -24,6 +24,7 @@ class StaticMetaclass(type):
 class ApiMethod(object):
     __metaclass__ = StaticMetaclass
     list_attributes = []
+    required_attributes = []
     model = None
 
     def handlers(cls):
@@ -34,7 +35,7 @@ class ApiMethod(object):
             'DELETE': cls.delete,
         }
 
-    def __list(cls):
+    def _list(cls):
         obj_list = query(cls.model).all()
 
         return map(
@@ -44,7 +45,31 @@ class ApiMethod(object):
         )
 
     def post(cls, id, data):
-        pass
+        if not cls.required_attributes:
+            name = lambda a: getattr(a, 'name')
+
+            required_attributes = map(
+                name,
+                filter(
+                    lambda attr: not attr.nullable and name(attr) != 'id',
+                    cls.model.__table__.columns
+                )
+            )
+
+        try:
+            h = dict((attr, data[attr])
+                     for attr in required_attributes)
+
+            obj = cls.model(**h)
+            session = get_session()
+
+            session.add(obj)
+            session.commit()
+
+            return obj.id
+        except KeyError as e:
+            return error("Missing required parameter: {}".format(e.args[0]),
+                         400)
 
     def get(cls, id):
         try:
@@ -54,14 +79,17 @@ class ApiMethod(object):
                         .one()
                         .to_dict())
             else:
-                return cls.__list()
+                return cls._list()
 
         except NoResultFound:
             raise ApiError("No object with such id", 404)
 
     def delete(cls, id):
         try:
-            query(cls.model).filter(cls.model.id == id).delete()
+            session = get_session()
+
+            session.query(cls.model).filter(cls.model.id == id).delete()
+            session.commit()
         except Exception as e:
             return error(e.message, 500)
 
@@ -72,26 +100,6 @@ class ApiMethod(object):
 class SectionMethod(ApiMethod):
     list_attributes = ['id', 'order', 'subject']
     model = Section
-
-    def post(self, id, data):
-        print 'SectionMethod::post'
-        try:
-            subject = data['subject']
-            lection = data['lection']
-            order = data['order']
-
-            print subject, lection, order
-        except KeyError as e:
-            return error("Missing required parameter: {}".format(e.args[0]),
-                         400)
-
-        s = Section(subject=subject, lection=lection, order=order)
-
-        session = get_session()
-        session.add(s)
-        session.commit()
-
-        return s.id
 
 
 def error(message, code=400):
