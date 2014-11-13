@@ -2,6 +2,7 @@ from db import query, get_session
 from models import Section
 
 from sqlalchemy.orm.exc import NoResultFound
+import httplib
 
 methods = {}
 
@@ -36,6 +37,34 @@ class ApiMethod(object):
             'DELETE': cls.delete,
         }
 
+    def get(cls, id):
+        try:
+            if id:
+                return ok(*cls._get(id))
+            else:
+                return ok(*cls._list())
+
+        except NoResultFound:
+            raise ApiError("No object with such id", httplib.NOT_FOUND)
+
+    def delete(cls, id):
+        if not id:
+            raise ApiError("Missing required parameter: id")
+
+        return ok(*cls._delete(id))
+
+    def post(cls, id, data):
+        if id:
+            raise ApiError("Invalid parameter for method: id")
+
+        return ok(*cls._add(id, data))
+
+    def put(cls, id, data):
+        if not id:
+            raise ApiError("Missing required parameter: id")
+
+        return ok(*cls._update(id, data))
+
     def _list(cls):
         obj_list = query(cls.model).all()
         attributes = cls.list_attributes
@@ -49,9 +78,9 @@ class ApiMethod(object):
             lambda obj: dict([(attr, getattr(obj, attr))
                               for attr in attributes]),
             obj_list
-        )
+        ),
 
-    def post(cls, id, data):
+    def _add(cls, id, data):
         required = []
         optional = []
 
@@ -78,45 +107,34 @@ class ApiMethod(object):
         session.add(obj)
         session.commit()
 
-        return obj.to_dict()
+        return obj.to_dict(), httplib.CREATED
 
-    def get(cls, id):
-        try:
-            if id:
-                return (query(cls.model)
-                        .filter_by(id=id)
-                        .one()
-                        .to_dict())
-            else:
-                return cls._list()
+    def _get(cls, id):
+        return (query(cls.model)
+                .filter_by(id=id)
+                .one()
+                .to_dict()),
 
-        except NoResultFound:
-            raise ApiError("No object with such id", 404)
-
-    def delete(cls, id):
-        try:
-            if not id:
-                raise ApiError("Missing required parameter: id")
-
-            session = get_session()
-
-            session.query(cls.model).filter(cls.model.id == id).delete()
-            session.commit()
-
-            return ok()
-        except Exception as e:
-            raise ApiError(e.message, 500)
-
-    def put(cls, id, data):
-        if not id:
-            raise ApiError("Missing required parameter: id")
-
+    def _delete(cls, id):
         session = get_session()
 
         try:
             s = session.query(cls.model).filter(cls.model.id == id).one()
         except NoResultFound:
-            raise ApiError("No object with such id", 404)
+            return None, httplib.NO_CONTENT
+
+        session.delete(s)
+        session.commit()
+
+        return None, httplib.ACCEPTED
+
+    def _update(cls, id, data):
+        session = get_session()
+
+        try:
+            s = session.query(cls.model).filter(cls.model.id == id).one()
+        except NoResultFound:
+            return cls._add(id, data)
 
         for key, val in data.items():
             if key not in cls.block_update_attributes:
@@ -125,7 +143,7 @@ class ApiMethod(object):
         session.add(s)
         session.commit()
 
-        return s.to_dict()
+        return s.to_dict(),
 
 
 class SectionMethod(ApiMethod):
@@ -133,16 +151,14 @@ class SectionMethod(ApiMethod):
     model = Section
 
 
-def error(message, code=400):
+def error(message, code=httplib.BAD_REQUEST):
     return {
         'error': message
     }, code
 
 
-def ok(message=True, code=200):
-    return {
-        'acknowledged': message
-    }, code
+def ok(data, code=httplib.OK):
+    return data, code
 
 
 def api_method(**kwargs):
@@ -164,7 +180,7 @@ def api_method(**kwargs):
 
 
 class ApiError(Exception):
-    def __init__(self, message, code=400):
+    def __init__(self, message, code=httplib.BAD_REQUEST):
         super(ApiError, self).__init__(message)
         self.code = code
 
@@ -186,13 +202,13 @@ def call(api_method, *args, **kwargs):
             if method not in m['methods']:
                 result = error("Unsupported method: {}".format(method))
             else:
-                result = m['func'](*args, **kwargs), 200
+                result = m['func'](*args, **kwargs)
         except ApiError as e:
             result = error(e.message, e.code)
         except Exception as e:
-            result = error(e.message, 500)
+            result = error(e.message, httplib.INTERNAL_SERVER_ERROR)
     else:
-        result = error("Method {} does not exist".format(api_method), 404)
+        result = error("Method {} does not exist".format(api_method), httplib.NOT_FOUND)
 
     return result
 
