@@ -1,5 +1,6 @@
 from db import query, get_session
 from models import Section
+
 from sqlalchemy.orm.exc import NoResultFound
 
 methods = {}
@@ -24,7 +25,7 @@ class StaticMetaclass(type):
 class ApiMethod(object):
     __metaclass__ = StaticMetaclass
     list_attributes = []
-    required_attributes = []
+    block_update_attributes = []
     model = None
 
     def handlers(cls):
@@ -37,39 +38,47 @@ class ApiMethod(object):
 
     def _list(cls):
         obj_list = query(cls.model).all()
+        attributes = cls.list_attributes
+
+        if not attributes:
+            name = lambda o: getattr(o, 'name')
+
+            attributes = map(name, cls.model.__table__.columns)
 
         return map(
             lambda obj: dict([(attr, getattr(obj, attr))
-                              for attr in cls.list_attributes]),
+                              for attr in attributes]),
             obj_list
         )
 
     def post(cls, id, data):
-        if not cls.required_attributes:
-            name = lambda a: getattr(a, 'name')
+        required = []
+        optional = []
 
-            required_attributes = map(
-                name,
-                filter(
-                    lambda attr: not attr.nullable and name(attr) != 'id',
-                    cls.model.__table__.columns
-                )
-            )
+        for column in cls.model.__table__.columns:
+            if column.name != 'id':
+                if not column.nullable:
+                    required.append(column.name)
+                else:
+                    optional.append(column.name)
 
         try:
             h = dict((attr, data[attr])
-                     for attr in required_attributes)
-
-            obj = cls.model(**h)
-            session = get_session()
-
-            session.add(obj)
-            session.commit()
-
-            return obj.id
+                     for attr in required)
         except KeyError as e:
-            return error("Missing required parameter: {}".format(e.args[0]),
-                         400)
+            raise ApiError("Missing required parameter: {}".format(e.args[0]))
+
+        for o in optional:
+            if o in data:
+                h.update({o: data[o]})
+
+        obj = cls.model(**h)
+        session = get_session()
+
+        session.add(obj)
+        session.commit()
+
+        return obj.to_dict()
 
     def get(cls, id):
         try:
@@ -86,25 +95,53 @@ class ApiMethod(object):
 
     def delete(cls, id):
         try:
+            if not id:
+                raise ApiError("Missing required parameter: id")
+
             session = get_session()
 
             session.query(cls.model).filter(cls.model.id == id).delete()
             session.commit()
+
+            return ok()
         except Exception as e:
-            return error(e.message, 500)
+            raise ApiError(e.message, 500)
 
     def put(cls, id, data):
-        pass
+        if not id:
+            raise ApiError("Missing required parameter: id")
+
+        session = get_session()
+
+        try:
+            s = session.query(cls.model).filter(cls.model.id == id).one()
+        except NoResultFound:
+            raise ApiError("No object with such id", 404)
+
+        for key, val in data.items():
+            if key not in cls.block_update_attributes:
+                setattr(s, key, val)
+
+        session.add(s)
+        session.commit()
+
+        return s.to_dict()
 
 
 class SectionMethod(ApiMethod):
-    list_attributes = ['id', 'order', 'subject']
+    list_attributes = []
     model = Section
 
 
 def error(message, code=400):
     return {
         'error': message
+    }, code
+
+
+def ok(message=True, code=200):
+    return {
+        'acknowledged': message
     }, code
 
 
@@ -127,7 +164,7 @@ def api_method(**kwargs):
 
 
 class ApiError(Exception):
-    def __init__(self, message, code):
+    def __init__(self, message, code=400):
         super(ApiError, self).__init__(message)
         self.code = code
 
@@ -155,7 +192,7 @@ def call(api_method, *args, **kwargs):
         except Exception as e:
             result = error(e.message, 500)
     else:
-        result = error("Method {} does not exist".format(api_method))
+        result = error("Method {} does not exist".format(api_method), 404)
 
     return result
 
