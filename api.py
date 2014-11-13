@@ -1,8 +1,8 @@
 from db import query, get_session
-from models import Section
+from models import Section, Question
 
 from sqlalchemy.orm.exc import NoResultFound
-import httplib
+from http import client as http
 
 methods = {}
 
@@ -23,8 +23,7 @@ class StaticMetaclass(type):
         return type.__new__(cls, cls_name, cls_parents, attrs)
 
 
-class ApiMethod(object):
-    __metaclass__ = StaticMetaclass
+class ApiMethod(metaclass=StaticMetaclass):
     list_attributes = []
     block_update_attributes = []
     model = None
@@ -45,7 +44,7 @@ class ApiMethod(object):
                 return ok(*cls._list())
 
         except NoResultFound:
-            raise ApiError("No object with such id", httplib.NOT_FOUND)
+            raise ApiError("No object with such id", http.NOT_FOUND)
 
     def delete(cls, id):
         if not id:
@@ -74,10 +73,12 @@ class ApiMethod(object):
 
             attributes = map(name, cls.model.__table__.columns)
 
-        return map(
-            lambda obj: dict([(attr, getattr(obj, attr))
-                              for attr in attributes]),
-            obj_list
+        return list(
+            map(
+                lambda obj: dict([(attr, getattr(obj, attr))
+                                for attr in attributes]),
+                obj_list
+            )
         ),
 
     def _add(cls, id, data):
@@ -107,7 +108,7 @@ class ApiMethod(object):
         session.add(obj)
         session.commit()
 
-        return obj.to_dict(), httplib.CREATED
+        return obj.to_dict(), http.CREATED
 
     def _get(cls, id):
         return (query(cls.model)
@@ -121,12 +122,12 @@ class ApiMethod(object):
         try:
             s = session.query(cls.model).filter(cls.model.id == id).one()
         except NoResultFound:
-            return None, httplib.NO_CONTENT
+            return None, http.NO_CONTENT
 
         session.delete(s)
         session.commit()
 
-        return None, httplib.ACCEPTED
+        return None, http.ACCEPTED
 
     def _update(cls, id, data):
         session = get_session()
@@ -147,17 +148,20 @@ class ApiMethod(object):
 
 
 class SectionMethod(ApiMethod):
-    list_attributes = []
     model = Section
 
 
-def error(message, code=httplib.BAD_REQUEST):
+class QuestionMethod(ApiMethod):
+    model = Question
+
+
+def error(message, code=http.BAD_REQUEST):
     return {
         'error': message
     }, code
 
 
-def ok(data, code=httplib.OK):
+def ok(data, code=http.OK):
     return data, code
 
 
@@ -180,7 +184,7 @@ def api_method(**kwargs):
 
 
 class ApiError(Exception):
-    def __init__(self, message, code=httplib.BAD_REQUEST):
+    def __init__(self, message, code=http.BAD_REQUEST):
         super(ApiError, self).__init__(message)
         self.code = code
 
@@ -204,11 +208,11 @@ def call(api_method, *args, **kwargs):
             else:
                 result = m['func'](*args, **kwargs)
         except ApiError as e:
-            result = error(e.message, e.code)
+            result = error(str(e), e.code)
         except Exception as e:
-            result = error(e.message, httplib.INTERNAL_SERVER_ERROR)
+            result = error(str(e), http.INTERNAL_SERVER_ERROR)
     else:
-        result = error("Method {} does not exist".format(api_method), httplib.NOT_FOUND)
+        result = error("Method {} does not exist".format(api_method), http.NOT_FOUND)
 
     return result
 
@@ -217,8 +221,9 @@ def nomethod(*args, **kwargs):
     return error("No method with such name exists")
 
 
-@api_method(name='section', methods=['GET', 'POST', 'DELETE', 'PUT'])
-def section(params, post_data, args, method):
+@api_method(name='sections', methods=['GET', 'POST', 'DELETE', 'PUT'])
+@api_method(name='questions', methods=['GET', 'POST', 'DELETE', 'PUT'])
+def objects(params, post_data, args, method):
     id = args['id']
 
     if method in ['GET', 'DELETE']:

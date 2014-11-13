@@ -53,12 +53,19 @@ class Answer(JsonBase):
     question_id = Column(Integer, ForeignKey('questions.id'))
     text = Column(String, nullable=False)
     correct = Column(Boolean, nullable=False, default=False)
-    user_id = Column(Integer, ForeignKey('users.id'))
 
     def __repr__(self):
         return u'<Answer(id={}, question_id={}, text={}, correct={})>'.format(
             self.id, self.question_id, self.text, self.correct
         )
+
+
+class UserAnswer(JsonBase):
+    __tablename__ = 'user_answers'
+
+    id = Column(Integer, primary_key=True)
+    answer_id = Column(Integer, ForeignKey('answers.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
 
 
 class User(JsonBase):
