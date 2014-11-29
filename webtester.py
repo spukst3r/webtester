@@ -2,9 +2,10 @@ from flask import Flask, request
 from flask.ext.cors import cross_origin
 
 import json
+import yaml
 import api
 
-app = Flask(__name__)
+app = Flask('webtester')
 
 
 @app.route('/api/<method>/', defaults={'id': None}, methods=['GET', 'POST'])
@@ -20,10 +21,19 @@ def call_api(method, **kwargs):
     return json.dumps(result, ensure_ascii=False), code
 
 
-@app.route('/')
-def auth():
-    return app.send_static_file('../tester-webui/auth.html')
-
-
 if __name__ == '__main__':
+    @app.route('/')
+    def index():
+        return app.send_static_file('index.html')
+
+    @app.route('/<path:path>')
+    def auth(path):
+        return app.send_static_file(path)
+
+    with open('config.yml') as cnf:
+        config = yaml.load(cnf)['webtester']
+
+    app.secret_key = config.pop('secret_key', None)
+    app.config.update(config)
+
     app.run(debug=True)

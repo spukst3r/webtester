@@ -73,5 +73,5 @@ class User(JsonBase):
 
     id = Column(Integer, primary_key=True)
     first_name = Column(String, nullable=False)
-    middle_name = Column(String)
+    middle_name = Column(String, nullable=True)
     last_name = Column(String, nullable=False)

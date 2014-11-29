@@ -8,9 +8,11 @@ Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)
 
+_session = Session()
+
 
 def get_session():
-    return Session()
+    return _session
 
 
 def query(column):
