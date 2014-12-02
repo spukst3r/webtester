@@ -25,8 +25,7 @@ class StaticMetaclass(type):
     def __new__(cls, cls_name, cls_parents, cls_attr):
         attrs = {}
 
-        attrs['model'] = cls_attr['model']
-        cls_attr.pop('model')
+        attrs['model'] = cls_attr.pop('model', None)
 
         for name, val in cls_attr.items():
             if callable(val):
@@ -47,6 +46,7 @@ class MethodHandler(metaclass=StaticMetaclass):
             'PUT': cls.put,
             'GET': cls.get,
             'POST': cls.post,
+            'PATCH': cls.patch,
             'DELETE': cls.delete,
         }
 
@@ -78,6 +78,12 @@ class MethodHandler(metaclass=StaticMetaclass):
 
         return ok(*cls._update(id, data))
 
+    def patch(cls, id, data):
+        if not id:
+            raise ApiError("Missing required parameter: id")
+
+        return ok(*cls._update(id, data))
+
     def _list(cls):
         obj_list = query(cls.model).all()
         attributes = cls.list_attributes
@@ -89,8 +95,8 @@ class MethodHandler(metaclass=StaticMetaclass):
 
         return list(
             map(
-                lambda obj: dict([(attr, getattr(obj, attr))
-                                  for attr in attributes]),
+                lambda obj: dict((attr, getattr(obj, attr))
+                                 for attr in attributes),
                 obj_list
             )
         ),
@@ -167,3 +173,15 @@ class SectionHandler(MethodHandler):
 
 class QuestionHandler(MethodHandler):
     model = Question
+
+
+class StatsHandler(MethodHandler):
+    def handlers(cls):
+        return {
+            'GET': cls.get
+        }
+
+    def get(cls):
+        return ok({
+            'admin': True,
+        })

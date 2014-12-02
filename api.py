@@ -2,6 +2,7 @@ from http import client as http
 from handlers import (
     SectionHandler,
     QuestionHandler,
+    StatsHandler,
     error,
     ApiError,
 )
@@ -60,7 +61,7 @@ def nomethod(*args, **kwargs):
     return error("No method with such name exists")
 
 
-@api_method(name='sections', methods=['GET', 'POST', 'DELETE', 'PUT'])
+@api_method(name='sections', methods=['GET', 'POST', 'DELETE', 'PUT', 'PATCH'])
 def sections(params, post_data, args, method):
     id = args['id']
 
@@ -82,3 +83,8 @@ def questions(params, post_data, args, method):
         args = id, post_data
 
     return QuestionHandler.handlers().get(method, nomethod)(*args)
+
+
+@api_method(name='stats', methods=['GET'])
+def stats(params, post_data, args, method):
+    return StatsHandler.handlers().get(method, nomethod)()

@@ -22,6 +22,7 @@ class Section(JsonBase):
     subject = Column(String, nullable=False)
     lection = Column(Text)
     order = Column(Integer, nullable=False)
+    summary = Column(String, nullable=True)
 
     def __repr__(self):
         lect = (self.lection[:22] + '...'
