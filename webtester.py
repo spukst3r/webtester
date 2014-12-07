@@ -16,7 +16,10 @@ def call_api(method, **kwargs):
     post_data = request.form
 
     try:
-        post_data = request.get_json()
+        j = request.get_json()
+
+        if j:
+            post_data = j
     except exceptions.BadRequest:
         pass
 
@@ -43,6 +46,7 @@ if __name__ == '__main__':
         return app.send_static_file('index.html')
 
     @app.route('/js/<path:path>')
+    @app.route('/css/<path:path>')
     @app.route('/bower_components/<path:path>')
     def static_components(path):
         return app.send_static_file(request.path.replace('/', '', 1))

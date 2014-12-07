@@ -58,7 +58,7 @@ def call(api_method, *args, **kwargs):
 
 
 def nomethod(*args, **kwargs):
-    return error("No method with such name exists")
+    return error("Unsupported method for this action")
 
 
 @api_method(name='sections', methods=['GET', 'POST', 'DELETE', 'PUT', 'PATCH'])

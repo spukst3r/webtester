@@ -118,6 +118,9 @@ class MethodHandler(metaclass=StaticMetaclass):
         except KeyError as e:
             raise ApiError("Missing required parameter: {}".format(e.args[0]))
 
+        if id:
+            h['id'] = id
+
         for o in optional:
             if o in data:
                 h.update({o: data[o]})
