@@ -1,8 +1,20 @@
+import json
+
 from sqlalchemy.ext.declarative import declarative_base, AbstractConcreteBase
 from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.inspection import inspect
 
 
 Base = declarative_base()
+
+
+class JSONSerializer(json.JSONEncoder):
+    def default(self, obj):
+        if callable(getattr(obj, 'to_dict')):
+            return obj.to_dict()
+
+        return json.JSONEncoder.default(self, obj)
 
 
 class JsonBase(AbstractConcreteBase, Base):
@@ -11,6 +23,10 @@ class JsonBase(AbstractConcreteBase, Base):
 
         for col in self.__table__.columns:
             d[col.name] = getattr(self, col.name)
+
+        for relation in inspect(self.__class__).relationships:
+            rel_name = relation.key
+            d[rel_name] = getattr(self, rel_name)
 
         return d
 
@@ -23,6 +39,7 @@ class Section(JsonBase):
     lection = Column(Text)
     order = Column(Integer, nullable=False)
     summary = Column(String, nullable=True)
+    questions = relationship('Question')
 
     def __repr__(self):
         lect = (self.lection[:22] + '...'
@@ -40,6 +57,7 @@ class Question(JsonBase):
     id = Column(Integer, primary_key=True)
     question = Column(String, nullable=False)
     section_id = Column(Integer, ForeignKey('sections.id'))
+    answers = relationship('Answer')
 
     def __repr__(self):
         return u'<Question(id={}, question={}, section_id={})>'.format(

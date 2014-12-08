@@ -1,6 +1,7 @@
 from flask import Flask, request
 from flask.ext.cors import cross_origin
 from werkzeug import exceptions
+from models import JSONSerializer
 
 import json
 import yaml
@@ -29,7 +30,7 @@ def call_api(method, **kwargs):
                             kwargs,
                             request.method)
 
-    return json.dumps(result, ensure_ascii=False), code
+    return json.dumps(result, ensure_ascii=False, cls=JSONSerializer), code
 
 
 with open('config.yml') as cnf:

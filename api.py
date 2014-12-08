@@ -3,6 +3,7 @@ from handlers import (
     SectionHandler,
     QuestionHandler,
     StatsHandler,
+    AnswerHandler,
     error,
     ApiError,
 )
@@ -82,7 +83,20 @@ def questions(params, post_data, args, method):
     else:
         args = id, post_data
 
+    print("{} {} {} {}".format(params, post_data, args, method))
     return QuestionHandler.handlers().get(method, nomethod)(*args)
+
+
+@api_method(name='answers', methods=['GET', 'POST', 'DELETE', 'PUT'])
+def answers(params, post_data, args, method):
+    id = args['id']
+
+    if method in ['GET', 'DELETE']:
+        args = id,
+    else:
+        args = id, post_data
+
+    return AnswerHandler.handlers().get(method, nomethod)(*args)
 
 
 @api_method(name='stats', methods=['GET'])

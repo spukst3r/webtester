@@ -2,7 +2,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from http import client as http
 
 from db import query, get_session
-from models import Section, Question
+from models import Section, Question, Answer
 
 
 def ok(data, code=http.OK):
@@ -176,6 +176,10 @@ class SectionHandler(MethodHandler):
 
 class QuestionHandler(MethodHandler):
     model = Question
+
+
+class AnswerHandler(MethodHandler):
+    model = Answer
 
 
 class StatsHandler(MethodHandler):
