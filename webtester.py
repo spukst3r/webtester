@@ -48,6 +48,7 @@ if __name__ == '__main__':
 
     @app.route('/js/<path:path>')
     @app.route('/css/<path:path>')
+    @app.route('/img/<path:path>')
     @app.route('/bower_components/<path:path>')
     def static_components(path):
         return app.send_static_file(request.path.replace('/', '', 1))

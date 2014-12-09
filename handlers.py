@@ -1,3 +1,5 @@
+import random
+
 from sqlalchemy.orm.exc import NoResultFound
 from http import client as http
 
@@ -177,6 +179,20 @@ class SectionHandler(MethodHandler):
 class QuestionHandler(MethodHandler):
     model = Question
 
+    def _delete(cls, id):
+        session = get_session()
+
+        try:
+            s = session.query(cls.model).filter(cls.model.id == id).one()
+        except NoResultFound:
+            return None, http.NO_CONTENT
+
+        map(session.delete, s.answers)
+        session.delete(s)
+        session.commit()
+
+        return None, http.ACCEPTED
+
 
 class AnswerHandler(MethodHandler):
     model = Answer
@@ -192,3 +208,71 @@ class StatsHandler(MethodHandler):
         return ok({
             'admin': True,
         })
+
+
+class QuizHandler(MethodHandler):
+    def handlers(cls):
+        return {
+            'GET': cls.get,
+            'PUT': cls.put,
+        }
+
+    def get(cls, id):
+        result = {}
+        session = get_session()
+
+        try:
+            s = session.query(Section).filter(Section.id == id).one()
+        except NoResultFound:
+            return error("No section with such id", http.NOT_FOUND)
+
+        result['lection'] = s.lection
+        result['subject'] = s.subject
+        result['questions'] = []
+
+        for question in s.questions:
+            result['questions'].append({
+                'id': question.id,
+                'question': question.question,
+                'answer_variants': sorted(
+                    [
+                        {
+                            'id': a.id,
+                            'text': a.text,
+                        } for a in question.answers
+                    ],
+                    key=lambda x: random.random())
+            })
+
+        return ok(result)
+
+    def put(cls, id, data):
+        result = {}
+        session = get_session()
+
+        try:
+            s = session.query(Section).filter(Section.id == id).one()
+        except NoResultFound:
+            return error("No section with such id", http.NOT_FOUND)
+
+        try:
+            h = data['answers']
+            answers = dict(zip(map(lambda k: int(k), h.keys()), h.values()))
+        except Exception:
+            return error("Malformed request")
+
+        for question in s.questions:
+            if len(question.answers) > 1:
+                q_res = []
+
+                for answer in question.answers:
+                    q_res.append(answer.correct == answers.get(answer.id, False))
+
+                print("Question: {}, q_res: {}".format(question.question, q_res))
+                result[question.id] = all(q_res)
+            else:
+                for answer in question.answers:
+                    print("Question: {}, res: {}".format(question.question, answer.id))
+                    result[question.id] = (answer.text == answers.get(answer.id, None))
+
+        return ok({'result': result})

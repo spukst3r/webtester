@@ -4,6 +4,7 @@ from handlers import (
     QuestionHandler,
     StatsHandler,
     AnswerHandler,
+    QuizHandler,
     error,
     ApiError,
 )
@@ -74,7 +75,7 @@ def sections(params, post_data, args, method):
     return SectionHandler.handlers().get(method, nomethod)(*args)
 
 
-@api_method(name='questions', methods=['GET', 'POST', 'DELETE', 'PUT'])
+@api_method(name='questions', methods=['GET', 'POST', 'DELETE', 'PUT', 'PATCH'])
 def questions(params, post_data, args, method):
     id = args['id']
 
@@ -83,11 +84,10 @@ def questions(params, post_data, args, method):
     else:
         args = id, post_data
 
-    print("{} {} {} {}".format(params, post_data, args, method))
     return QuestionHandler.handlers().get(method, nomethod)(*args)
 
 
-@api_method(name='answers', methods=['GET', 'POST', 'DELETE', 'PUT'])
+@api_method(name='answers', methods=['GET', 'POST', 'DELETE', 'PUT', 'PATCH'])
 def answers(params, post_data, args, method):
     id = args['id']
 
@@ -97,6 +97,18 @@ def answers(params, post_data, args, method):
         args = id, post_data
 
     return AnswerHandler.handlers().get(method, nomethod)(*args)
+
+
+@api_method(name='quiz', methods=['GET', 'PUT'])
+def quiz(params, post_data, args, method):
+    id = args['id']
+
+    if method == 'GET':
+        args = id,
+    else:
+        args = id, post_data
+
+    return QuizHandler.handlers().get(method, nomethod)(*args)
 
 
 @api_method(name='stats', methods=['GET'])
