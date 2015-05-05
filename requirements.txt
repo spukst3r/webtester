@@ -1,0 +1,5 @@
+SQLAlchemy==0.9.8
+Flask==0.10.1
+Werkzeug==0.9.6
+Flask-Cors==1.9.0
+MySQL-python==1.2.5
